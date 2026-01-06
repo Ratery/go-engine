@@ -21,7 +21,7 @@ namespace go {
         bool move(Move m, Undo& u);
         void undo(const Undo& u);
 
-        std::vector<Move> legal_moves() const;
+        std::vector<Move> legal_moves();
 
         std::string dump(bool flip_vertical = true) const;
 

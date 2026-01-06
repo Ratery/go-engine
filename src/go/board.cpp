@@ -158,13 +158,16 @@ namespace go {
         }
     }
 
-    std::vector<Move> Board::legal_moves() const {
+    std::vector<Move> Board::legal_moves() {  // TODO: make this method const
         std::vector<Move> moves;
         for (int i = 1; i <= n_; i++) {
             for (int j = 1; j <= n_; j++) {
                 int pos = i * stride_ + j;
-                if (board_[pos] == Point::Empty && pos != ko_point_) {
-                    moves.push_back(Move(pos));
+                Move m(pos);
+                Undo u;
+                if (move(m, u)) {
+                    moves.push_back(m);
+                    undo(u);
                 }
             }
         }
@@ -195,7 +198,7 @@ namespace go {
         }
 
         out << "   ";
-        for (int x = 0; x < N; ++x) {
+        for (int x = 0; x < n_; ++x) {
             out << col_letter(x) << ' ';
         }
         out << '\n';
