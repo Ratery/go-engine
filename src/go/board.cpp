@@ -22,8 +22,9 @@ namespace {
 
 namespace go {
 
-    Board::Board(int n)
+    Board::Board(int n, double komi)
         : n_(n),
+          komi_(komi),
           stride_(n + 2),
           board_(stride_ * stride_, Point::Wall)
     {
@@ -33,18 +34,6 @@ namespace go {
             }
         }
         mark_.assign(board_.size(), 0);
-    }
-
-    int Board::size() const {
-        return n_;
-    }
-
-    Point Board::at(int v) const {
-        return board_[v];
-    }
-
-    Point Board::at(int x, int y) const {
-        return board_[(y + 1) * stride_ + x + 1];
     }
 
     std::array<int, 4> Board::neigh4(int v) const {
@@ -172,6 +161,56 @@ namespace go {
             }
         }
         return moves;
+    }
+
+    double Board::evaluate(go::Color perspective) const {
+        double score = 0;
+        mark_id_++;
+        stack_.clear();
+        for (int i = 1; i <= n_; i++) {
+            for (int j = 1; j <= n_; j++) {
+                int pos = i * stride_ + j;
+                Point p = board_[pos];
+                if (Matches(p, perspective)) {
+                    score++;
+                    continue;
+                }
+                if (Matches(p, Opp(perspective))) {
+                    score--;
+                    continue;
+                }
+                if (p != Point::Empty || mark_[pos] == mark_id_) {
+                    continue;
+                }
+                bool perspective_c = false, opposite_c = false;
+                stack_.push_back(pos);
+                mark_[pos] = mark_id_;
+                int points = 0;
+                while (!stack_.empty()) {
+                    points++;
+                    int cur = stack_.back();
+                    stack_.pop_back();
+                    for (int neigh: neigh4(cur)) {
+                        if (Matches(board_[neigh], perspective)) {
+                            perspective_c = true;
+                        } else if (Matches(board_[neigh], Opp(perspective))) {
+                            opposite_c = true;
+                        }
+                        if (mark_[neigh] != mark_id_ && board_[neigh] == Point::Empty) {
+                            mark_[neigh] = mark_id_;
+                            stack_.push_back(neigh);
+                        }
+                    }
+                }
+                if (perspective_c && !opposite_c) {
+                    score += points;
+                } else if (!perspective_c && opposite_c) {
+                    score -= points;
+                }
+            }
+        }
+        score += (perspective == Color::White ? komi_ : -komi_);
+        return score;
     }
 
     std::string Board::dump(bool flip_vertical) const {
