@@ -44,7 +44,8 @@ namespace go {
         Move move;
         Color played;
         int prev_ko;
-        std::vector<int> captured;
+        size_t cap_begin;
+        size_t cap_count;
     };
 
 }  // namespace go

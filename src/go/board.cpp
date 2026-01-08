@@ -40,6 +40,13 @@ namespace go {
         return {v - 1, v + 1, v - stride_, v + stride_};
     }
 
+    std::span<const int> Board::captured_span(const Undo& u) const noexcept {
+        return {
+            capture_pool_.data() + u.cap_begin,
+            u.cap_count
+        };
+    }
+
     void Board::collect_group(int start, std::vector<int>& out) const {
         mark_id_++;
         out.clear();
@@ -77,15 +84,17 @@ namespace go {
     void Board::remove_group(const std::vector<int>& group, go::Undo& u) {
         for (int v : group) {
             board_[v] = Point::Empty;
-            u.captured.push_back(v);
+            capture_pool_.push_back(v);
+            u.cap_count++;
         }
     }
 
     bool Board::move(Move m, Undo& u) {
-        u.captured.clear();
         u.move = m;
         u.played = to_play_;
         u.prev_ko = ko_point_;
+        u.cap_begin = capture_pool_.size();
+        u.cap_count = 0;
 
         if (m.is_pass()) {
             ko_point_ = -1;
@@ -120,14 +129,14 @@ namespace go {
 
         if (liberties == 0) {  // suicidal move
             board_[m.v] = Point::Empty;
-            for (int v : u.captured) {
+            for (int v : captured_span(u)) {
                 board_[v] = ToPoint(Opp(to_play_));
             }
             return false;
         }
 
-        if (u.captured.size() == 1 && liberties == 1) {  // update ko point
-            ko_point_ = u.captured.front();
+        if (u.cap_count == 1 && liberties == 1) {  // update ko point
+            ko_point_ = captured_span(u).front();
         } else {
             ko_point_ = -1;
         }
@@ -141,10 +150,11 @@ namespace go {
         ko_point_ = u.prev_ko;
         if (!u.move.is_pass()) {
             board_[u.move.v] = Point::Empty;
-            for (int v: u.captured) {
+            for (int v: captured_span(u)) {
                 board_[v] = ToPoint(Opp(u.played));
             }
         }
+        capture_pool_.resize(u.cap_begin);
     }
 
     std::vector<Move> Board::legal_moves() {  // TODO: make this method const

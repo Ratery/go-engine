@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <array>
 #include <vector>
 #include <string>
@@ -43,7 +44,10 @@ namespace go {
         int n_, stride_, ko_point_ = -1;
         double komi_;
         std::vector<Point> board_;
+        std::vector<int> capture_pool_;
         Color to_play_ = Color::Black;
+
+        std::span<const int> captured_span(const Undo& u) const noexcept;
 
         // DFS
         mutable std::vector<int> mark_;
