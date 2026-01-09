@@ -54,9 +54,9 @@ namespace go {
         mutable int mark_id_ = 0;
         mutable std::vector<int> stack_;
 
-        void collect_group(int start, std::vector<int>& out) const;
-        int count_liberties(const std::vector<int>& group) const;
-        void remove_group(const std::vector<int>& group, Undo& u);
+        bool has_liberty(int v) const;
+        int count_liberties(int v) const;
+        void remove_group(int v, Undo& u);
     };
 
 }  // namespace go

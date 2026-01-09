@@ -47,45 +47,71 @@ namespace go {
         };
     }
 
-    void Board::collect_group(int start, std::vector<int>& out) const {
+    bool Board::has_liberty(int v) const {
         mark_id_++;
-        out.clear();
         stack_.clear();
-        stack_.push_back(start);
-        mark_[start] = mark_id_;
-        auto color = board_[start];
+        stack_.push_back(v);
+        mark_[v] = mark_id_;
+        Point color = board_[v];
         while (!stack_.empty()) {
             int cur = stack_.back();
             stack_.pop_back();
-            out.push_back(cur);
             for (int neigh : neigh4(cur)) {
+                if (board_[neigh] == Point::Empty) {
+                    return true;
+                }
                 if (mark_[neigh] != mark_id_ && board_[neigh] == color) {
                     mark_[neigh] = mark_id_;
                     stack_.push_back(neigh);
                 }
             }
         }
+        return false;
     }
 
-    int Board::count_liberties(const std::vector<int>& group) const {
-        mark_id_++;
+    int Board::count_liberties(int v) const {
         int liberties = 0;
-        for (int v : group) {
-            for (int neigh : neigh4(v)) {
-                if (board_[neigh] == Point::Empty && mark_[neigh] != mark_id_) {
-                    mark_[neigh] = mark_id_;
+        mark_id_++;
+        stack_.clear();
+        stack_.push_back(v);
+        mark_[v] = mark_id_;
+        Point color = board_[v];
+        while (!stack_.empty()) {
+            int cur = stack_.back();
+            stack_.pop_back();
+            for (int neigh : neigh4(cur)) {
+                if (board_[neigh] == Point::Empty) {
                     liberties++;
+                }
+                if (mark_[neigh] != mark_id_ && board_[neigh] == color) {
+                    mark_[neigh] = mark_id_;
+                    stack_.push_back(neigh);
                 }
             }
         }
         return liberties;
     }
 
-    void Board::remove_group(const std::vector<int>& group, go::Undo& u) {
-        for (int v : group) {
-            board_[v] = Point::Empty;
-            capture_pool_.push_back(v);
+    void Board::remove_group(int v, go::Undo& u) {
+        mark_id_++;
+        stack_.clear();
+        stack_.push_back(v);
+        mark_[v] = mark_id_;
+        Point color = board_[v];
+        while (!stack_.empty()) {
+            int cur = stack_.back();
+            stack_.pop_back();
+
+            board_[cur] = Point::Empty;
+            capture_pool_.push_back(cur);
             u.cap_count++;
+
+            for (int neigh : neigh4(cur)) {
+                if (mark_[neigh] != mark_id_ && board_[neigh] == color) {
+                    mark_[neigh] = mark_id_;
+                    stack_.push_back(neigh);
+                }
+            }
         }
     }
 
@@ -110,32 +136,32 @@ namespace go {
             return false;
         }
 
+        bool in_enemy_eye = true;
+        for (int neigh : neigh4(m.v)) {
+            if (board_[neigh] == Point::Empty || Matches(board_[neigh], to_play_)) {
+                in_enemy_eye = false;
+            }
+        }
+
         board_[m.v] = ToPoint(to_play_);
 
-        std::vector<int> group;
         for (int neigh : neigh4(m.v)) {
             if (Matches(board_[neigh], Opp(to_play_))) {
-                group.clear();
-                collect_group(neigh, group);
-                if (count_liberties(group) == 0) {
-                    remove_group(group, u);
+                if (!has_liberty(neigh)) {
+                    remove_group(neigh, u);
                 }
             }
         }
 
-        group.clear();
-        collect_group(m.v, group);
-        int liberties = count_liberties(group);
-
-        if (liberties == 0) {  // suicidal move
+        if (!has_liberty(m.v)) {  // suicidal move
             board_[m.v] = Point::Empty;
-            for (int v : captured_span(u)) {
-                board_[v] = ToPoint(Opp(to_play_));
+            for (int cap : captured_span(u)) {
+                board_[cap] = ToPoint(Opp(to_play_));
             }
             return false;
         }
 
-        if (u.cap_count == 1 && liberties == 1) {  // update ko point
+        if (in_enemy_eye && u.cap_count == 1) {  // update ko point
             ko_point_ = captured_span(u).front();
         } else {
             ko_point_ = -1;
