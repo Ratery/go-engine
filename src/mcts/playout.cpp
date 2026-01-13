@@ -5,7 +5,7 @@
 namespace mcts {
 
     std::vector<go::Move> gen_playout_moves(go::Board& pos) {
-        return pos.legal_moves();
+        return pos.pseudo_legal_moves();
     }
 
     go::Move pick_playout_move(go::Board& pos, RNG& rng) {

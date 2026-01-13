@@ -24,6 +24,10 @@ namespace go {
         return c == Color::Black ? Point::Black : Point::White;
     }
 
+    inline Color ToColor(Point p) {
+        return p == Point::Black ? Color::Black : Color::White;
+    }
+
     inline bool Matches(Point p, Color c) {
         return p == ToPoint(c);
     }

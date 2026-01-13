@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <optional>
 
 #include "types.h"
 
@@ -30,11 +31,12 @@ namespace go {
         }
 
         std::array<int, 4> neigh4(int v) const;
+        std::array<int, 4> diag_neigh(int v) const;
 
         bool move(Move m, Undo& u);
         void undo(const Undo& u);
 
-        std::vector<Move> legal_moves();
+        std::vector<Move> pseudo_legal_moves() const;
 
         double evaluate(Color perspective) const;
 
@@ -48,6 +50,9 @@ namespace go {
         Color to_play_ = Color::Black;
 
         std::span<const int> captured_span(const Undo& u) const noexcept;
+
+        std::optional<Color> is_eyeish(int v) const;
+        std::optional<Color> is_eye(int v) const;
 
         // DFS
         mutable std::vector<int> mark_;

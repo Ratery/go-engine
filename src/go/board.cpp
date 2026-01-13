@@ -37,7 +37,21 @@ namespace go {
     }
 
     std::array<int, 4> Board::neigh4(int v) const {
-        return {v - 1, v + 1, v - stride_, v + stride_};
+        return {
+            v - 1,
+            v + 1,
+            v - stride_,
+            v + stride_
+        };
+    }
+
+    std::array<int, 4> Board::diag_neigh(int v) const {
+        return {
+            v - stride_ - 1,
+            v - stride_ + 1,
+            v + stride_ - 1,
+            v + stride_ + 1
+        };
     }
 
     std::span<const int> Board::captured_span(const Undo& u) const noexcept {
@@ -136,11 +150,9 @@ namespace go {
             return false;
         }
 
-        bool in_enemy_eye = true;
-        for (int neigh : neigh4(m.v)) {
-            if (board_[neigh] == Point::Empty || Matches(board_[neigh], to_play_)) {
-                in_enemy_eye = false;
-            }
+        bool in_enemy_eye = false;
+        if (is_eyeish(m.v) == Opp(to_play_)) {
+            in_enemy_eye = true;
         }
 
         board_[m.v] = ToPoint(to_play_);
@@ -183,16 +195,13 @@ namespace go {
         capture_pool_.resize(u.cap_begin);
     }
 
-    std::vector<Move> Board::legal_moves() {  // TODO: make this method const
+    std::vector<Move> Board::pseudo_legal_moves() const {
         std::vector<Move> moves;
         for (int i = 1; i <= n_; i++) {
             for (int j = 1; j <= n_; j++) {
                 int pos = i * stride_ + j;
-                Move m(pos);
-                Undo u;
-                if (move(m, u)) {
-                    moves.push_back(m);
-                    undo(u);
+                if (board_[pos] == Point::Empty && pos != ko_point_ && !is_eye(pos)) {
+                    moves.push_back(Move(pos));
                 }
             }
         }
@@ -279,6 +288,53 @@ namespace go {
         out << '\n';
 
         return out.str();
+    }
+
+    std::optional<Color> Board::is_eyeish(int v) const {
+        if (board_[v] != Point::Empty) {
+            return std::nullopt;
+        }
+        std::optional<Color> eye_color = std::nullopt;
+        for (int neigh : neigh4(v)) {
+            if (board_[neigh] == Point::Empty) {
+                return std::nullopt;
+            }
+            if (board_[neigh] == Point::Wall) {
+                continue;
+            }
+            if (eye_color.has_value()) {
+                if (eye_color != ToColor(board_[neigh])) {
+                    return std::nullopt;
+                }
+            } else {
+                eye_color = ToColor(board_[neigh]);
+            }
+        }
+        return eye_color;
+    }
+
+    std::optional<Color> Board::is_eye(int v) const {
+        std::optional<Color> eye_color = is_eyeish(v);
+        if (!eye_color) {
+            return std::nullopt;
+        }
+        bool at_edge = false;
+        Color opp_color = Opp(eye_color.value());
+        int opp_count = 0;
+        for (int neigh : diag_neigh(v)) {
+            if (board_[neigh] == Point::Wall) {
+                at_edge = true;
+            } else if (Matches(board_[neigh], opp_color)) {
+                opp_count++;
+            }
+        }
+        if (at_edge) {
+            opp_count++;
+        }
+        if (opp_count >= 2) {
+            return std::nullopt;
+        }
+        return eye_color;
     }
 
 }  // namespace go
