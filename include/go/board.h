@@ -34,6 +34,14 @@ namespace go {
             return static_cast<int>(history_.size());
         }
 
+        int ko_point() const noexcept {
+            return ko_point_;
+        }
+
+        int ko_age() const noexcept {
+            return ko_age_;
+        }
+
         std::array<int, 4> neigh4(int v) const;
         std::array<int, 4> diag_neigh(int v) const;
 
@@ -47,7 +55,8 @@ namespace go {
         std::string dump(bool flip_vertical = true) const;
 
     private:
-        int n_, stride_, ko_point_ = -1;
+        int n_, stride_;
+        int ko_point_ = -1, ko_age_ = -1;
         double komi_;
         std::vector<Point> board_;
         std::vector<Undo> history_;

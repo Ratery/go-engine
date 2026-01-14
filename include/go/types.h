@@ -47,7 +47,8 @@ namespace go {
     struct Undo {
         Move move;
         Color played;
-        int prev_ko;
+        int ko_point;
+        int ko_age;
         size_t cap_begin;
         size_t cap_count;
     };

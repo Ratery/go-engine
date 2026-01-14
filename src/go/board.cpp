@@ -133,13 +133,13 @@ namespace go {
         Undo u{
             .move = m,
             .played = to_play_,
-            .prev_ko = ko_point_,
+            .ko_point = ko_point_,
+            .ko_age = ko_age_,
             .cap_begin = capture_pool_.size(),
             .cap_count = 0
         };
 
         if (m.is_pass()) {
-            ko_point_ = -1;
             to_play_ = Opp(to_play_);
             return true;
         }
@@ -148,7 +148,7 @@ namespace go {
             return false;
         }
 
-        if (m.v == ko_point_) {  // check simple ko rule
+        if (m.v == ko_point_ && ko_age_ == ply_count()) {  // check simple ko rule
             return false;
         }
 
@@ -177,8 +177,7 @@ namespace go {
 
         if (in_enemy_eye && u.cap_count == 1) {  // update ko point
             ko_point_ = captured_span(u).front();
-        } else {
-            ko_point_ = -1;
+            ko_age_ = ply_count() + 1;
         }
 
         to_play_ = Opp(to_play_);
@@ -192,7 +191,8 @@ namespace go {
         for (int i = size - 1; i >= new_size; i--) {
             Undo& u = history_[i];
             to_play_ = u.played;
-            ko_point_ = u.prev_ko;
+            ko_point_ = u.ko_point;
+            ko_age_ = u.ko_age;
             if (!u.move.is_pass()) {
                 board_[u.move.v] = Point::Empty;
                 for (int v: captured_span(u)) {
