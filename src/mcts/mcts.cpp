@@ -1,8 +1,6 @@
 #include "mcts/mcts.h"
 
 #include <cmath>
-#include <ranges>
-#include <iostream>
 
 #include "mcts/playout.h"
 
@@ -12,27 +10,21 @@ namespace mcts {
         nodes_.clear();
         nodes_.emplace_back(go::Move::Pass(), -1);
         root_color_ = pos.to_play();
-
-        std::vector<go::Undo> undos;
-        undos.reserve(512);
+        int root_ply_count = pos.ply_count();
 
         for (int it = 0; it < iters; it++) {
-            undos.clear();
-
-            int leaf = descend(pos, undos);
+            int leaf = descend(pos);
 
             if (nodes_[leaf].children.empty()) {
                 expand(leaf, pos);
                 int child = nodes_[leaf].children[0];
-                go::Undo u;
-                pos.move(nodes_[child].move, u);
-                undos.push_back(u);
+                pos.move(nodes_[child].move);
                 leaf = child;
             }
 
-            int result = playout(pos, undos);
+            int result = playout(pos);
             backprop(leaf, result);
-            rollback(pos, undos);
+            pos.undo(pos.ply_count() - root_ply_count);  // rollback
         }
 
         if (nodes_[0].children.empty()) {
@@ -95,34 +87,26 @@ namespace mcts {
         }
     }
 
-    int MCTS::descend(go::Board& pos, std::vector<go::Undo>& undos) {
+    int MCTS::descend(go::Board& pos) {
         int cur_id = 0;
         while (!nodes_[cur_id].children.empty()) {
             int child_id = select_child(cur_id);
             Node& child = nodes_[child_id];
-            go::Undo u;
-            pos.move(child.move, u);
-            undos.push_back(u);
+            pos.move(child.move);
             cur_id = child_id;
         }
         return cur_id;
     }
 
-    int MCTS::playout(go::Board& pos, std::vector<go::Undo>& undos) {
-        static int K = 0;
-        if (++K % 100 == 0) {
-            std::cout << "[DEBUG] Playout " << K++ << std::endl;
-        }
+    int MCTS::playout(go::Board& pos) {
         int passes = 0, moves = 0;
         const int max_moves = 3 * pos.size() * pos.size();
 
         while (passes < 2 && moves++ < max_moves) {
             go::Move m = pick_playout_move(pos, rng_);
-            go::Undo u;
-            if (!pos.move(m, u)) {
+            if (!pos.move(m)) {
                 continue;
             }
-            undos.push_back(u);
 
             if (m.is_pass()) {
                 passes++;
@@ -143,12 +127,6 @@ namespace mcts {
                 cur.wins++;
             }
             cur_id = cur.parent;
-        }
-    }
-
-    void MCTS::rollback(go::Board& pos, std::vector<go::Undo>& undos) {
-        for (const go::Undo& u : std::ranges::reverse_view(undos)) {
-            pos.undo(u);
         }
     }
 

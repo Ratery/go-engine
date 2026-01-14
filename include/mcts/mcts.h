@@ -27,11 +27,10 @@ namespace mcts {
 
         int select_child(int parent_id);
 
-        int descend(go::Board& pos, std::vector<go::Undo>& undos);
+        int descend(go::Board& pos);
         void expand(int node_id, go::Board& pos);
-        int playout(go::Board& pos, std::vector<go::Undo>& undos);
+        int playout(go::Board& pos);
         void backprop(int node_id, int result);
-        void rollback(go::Board& pos, std::vector<go::Undo>& undos);
     };
 
 }  // namespace mcts

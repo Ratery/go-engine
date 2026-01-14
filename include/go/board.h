@@ -30,11 +30,15 @@ namespace go {
             return to_play_;
         }
 
+        int ply_count() const noexcept {
+            return static_cast<int>(history_.size());
+        }
+
         std::array<int, 4> neigh4(int v) const;
         std::array<int, 4> diag_neigh(int v) const;
 
-        bool move(Move m, Undo& u);
-        void undo(const Undo& u);
+        bool move(Move m);
+        void undo(int count = 1);
 
         std::vector<Move> pseudo_legal_moves() const;
 
@@ -46,6 +50,7 @@ namespace go {
         int n_, stride_, ko_point_ = -1;
         double komi_;
         std::vector<Point> board_;
+        std::vector<Undo> history_;
         std::vector<int> capture_pool_;
         Color to_play_ = Color::Black;
 

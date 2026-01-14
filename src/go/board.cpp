@@ -129,12 +129,14 @@ namespace go {
         }
     }
 
-    bool Board::move(Move m, Undo& u) {
-        u.move = m;
-        u.played = to_play_;
-        u.prev_ko = ko_point_;
-        u.cap_begin = capture_pool_.size();
-        u.cap_count = 0;
+    bool Board::move(Move m) {
+        Undo u{
+            .move = m,
+            .played = to_play_,
+            .prev_ko = ko_point_,
+            .cap_begin = capture_pool_.size(),
+            .cap_count = 0
+        };
 
         if (m.is_pass()) {
             ko_point_ = -1;
@@ -180,19 +182,26 @@ namespace go {
         }
 
         to_play_ = Opp(to_play_);
+        history_.push_back(u);
         return true;
     }
 
-    void Board::undo(const go::Undo& u) {
-        to_play_ = u.played;
-        ko_point_ = u.prev_ko;
-        if (!u.move.is_pass()) {
-            board_[u.move.v] = Point::Empty;
-            for (int v: captured_span(u)) {
-                board_[v] = ToPoint(Opp(u.played));
+    void Board::undo(int count) {
+        int size = static_cast<int>(history_.size());
+        int new_size = size - count;
+        for (int i = size - 1; i >= new_size; i--) {
+            Undo& u = history_[i];
+            to_play_ = u.played;
+            ko_point_ = u.prev_ko;
+            if (!u.move.is_pass()) {
+                board_[u.move.v] = Point::Empty;
+                for (int v: captured_span(u)) {
+                    board_[v] = ToPoint(Opp(u.played));
+                }
             }
         }
-        capture_pool_.resize(u.cap_begin);
+        capture_pool_.resize(history_[new_size].cap_begin);
+        history_.resize(new_size);
     }
 
     std::vector<Move> Board::pseudo_legal_moves() const {
