@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <optional>
+#include <utility>
 
 #include "types.h"
 
@@ -44,11 +45,16 @@ namespace go {
 
         std::array<int, 4> neigh4(int v) const;
         std::array<int, 4> diag_neigh(int v) const;
+        std::array<int, 8> neigh8(int v) const;
+
+        std::pair<std::array<int, 18>, int> last_moves_neigh() const;
 
         bool move(Move m);
         void undo(int count = 1);
 
-        std::vector<Move> pseudo_legal_moves() const;
+        void gen_pseudo_legal_moves(std::vector<Move>& moves) const;
+
+        bool is_capture(Move m);
 
         double evaluate(Color perspective) const;
 

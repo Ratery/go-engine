@@ -10,8 +10,10 @@ namespace mcts {
 
     using RNG = std::mt19937_64;
 
-    std::vector<go::Move> gen_playout_moves(go::Board& pos);
+    void gen_playout_moves_ko(go::Board& pos, std::vector<go::Move>& moves);
 
-    go::Move pick_playout_move(go::Board& pos, RNG& rng);
+    void gen_playout_moves_capture(go::Board& pos, std::vector<go::Move>& moves);
+
+    go::Move play_heuristic_move(go::Board& pos, RNG& rng);
 
 }  // namespace mcts

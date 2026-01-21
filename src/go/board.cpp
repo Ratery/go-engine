@@ -1,7 +1,7 @@
+#include "go/board.h"
+
 #include <sstream>
 #include <iomanip>
-
-#include "go/board.h"
 
 namespace {
 
@@ -54,11 +54,81 @@ namespace go {
         };
     }
 
+    std::array<int, 8> Board::neigh8(int v) const {
+        return {
+            v + 1,
+            v - stride_ + 1,
+            v - stride_,
+            v - stride_ - 1,
+            v - 1,
+            v + stride_ - 1,
+            v + stride_,
+            v + stride_ + 1
+        };
+    }
+
+    std::pair<std::array<int, 18>, int> Board::last_moves_neigh() const {
+        int size = 0;
+        std::array<int, 18> res{};
+        if (history_.empty()) {
+            return {res, size};
+        }
+
+        mark_id_++;
+        auto add_neighbors = [&](int point) {
+            for (int neigh : neigh8(point)) {
+                if (mark_[neigh] != mark_id_) {
+                    res[size++] = neigh;
+                    mark_[neigh] = mark_id_;
+                }
+            }
+            if (mark_[point] != mark_id_) {
+                res[size++] = point;
+                mark_[point] = mark_id_;
+            }
+        };
+
+        add_neighbors((history_.end() - 1)->move.v);
+        if (history_.size() == 1) {
+            return {res, size};
+        }
+
+        add_neighbors((history_.end() - 2)->move.v);
+        return {res, size};
+    }
+
     std::span<const int> Board::captured_span(const Undo& u) const noexcept {
         return {
             capture_pool_.data() + u.cap_begin,
             u.cap_count
         };
+    }
+
+    bool Board::is_capture(Move m) {
+        if (m.is_pass()) {
+            return false;
+        }
+
+        if (board_[m.v] != Point::Empty) {
+            return false;
+        }
+
+        if (m.v == ko_point_ && ko_age_ == ply_count()) {  // check simple ko rule
+            return false;
+        }
+
+        board_[m.v] = ToPoint(to_play_);
+
+        for (int neigh : neigh4(m.v)) {
+            if (Matches(board_[neigh], Opp(to_play_))) {
+                if (!has_liberty(neigh)) {
+                    board_[m.v] = Point::Empty;
+                    return true;
+                }
+            }
+        }
+        board_[m.v] = Point::Empty;
+        return false;
     }
 
     bool Board::has_liberty(int v) const {
@@ -106,7 +176,7 @@ namespace go {
         return liberties;
     }
 
-    void Board::remove_group(int v, go::Undo& u) {
+    void Board::remove_group(int v, Undo& u) {
         mark_id_++;
         stack_.clear();
         stack_.push_back(v);
@@ -141,6 +211,7 @@ namespace go {
 
         if (m.is_pass()) {
             to_play_ = Opp(to_play_);
+            history_.push_back(u);
             return true;
         }
 
@@ -190,9 +261,6 @@ namespace go {
         int new_size = size - count;
         for (int i = size - 1; i >= new_size; i--) {
             Undo& u = history_[i];
-            to_play_ = u.played;
-            ko_point_ = u.ko_point;
-            ko_age_ = u.ko_age;
             if (!u.move.is_pass()) {
                 board_[u.move.v] = Point::Empty;
                 for (int v: captured_span(u)) {
@@ -200,12 +268,18 @@ namespace go {
                 }
             }
         }
-        capture_pool_.resize(history_[new_size].cap_begin);
+
+        Undo& u = history_[new_size];
+        to_play_ = u.played;
+        ko_point_ = u.ko_point;
+        ko_age_ = u.ko_age;
+
+        capture_pool_.resize(u.cap_begin);
         history_.resize(new_size);
     }
 
-    std::vector<Move> Board::pseudo_legal_moves() const {
-        std::vector<Move> moves;
+    void Board::gen_pseudo_legal_moves(std::vector<Move>& moves) const {
+        moves.clear();
         for (int i = 1; i <= n_; i++) {
             for (int j = 1; j <= n_; j++) {
                 int pos = i * stride_ + j;
@@ -214,10 +288,9 @@ namespace go {
                 }
             }
         }
-        return moves;
     }
 
-    double Board::evaluate(go::Color perspective) const {
+    double Board::evaluate(Color perspective) const {
         double score = 0;
         mark_id_++;
         stack_.clear();

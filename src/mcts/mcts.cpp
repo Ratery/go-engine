@@ -79,7 +79,9 @@ namespace mcts {
         if (!nodes_[node_id].children.empty()) {
             return;
         }
-        for (go::Move m : gen_playout_moves(pos)) {
+        std::vector<go::Move> moves;
+        pos.gen_pseudo_legal_moves(moves);
+        for (go::Move m : moves) {
             Node child(m, node_id);
             nodes_.push_back(child);
             int child_id = (int)nodes_.size() - 1;
@@ -103,17 +105,14 @@ namespace mcts {
         const int max_moves = 3 * pos.size() * pos.size();
 
         while (passes < 2 && moves++ < max_moves) {
-            go::Move m = pick_playout_move(pos, rng_);
-            if (!pos.move(m)) {
-                continue;
-            }
-
+            go::Move m = play_heuristic_move(pos, rng_);
             if (m.is_pass()) {
                 passes++;
             } else {
                 passes = 0;
             }
         }
+
         double score = pos.evaluate(root_color_);
         return score > 0;
     }
