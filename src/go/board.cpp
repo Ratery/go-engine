@@ -75,25 +75,27 @@ namespace go {
         }
 
         mark_id_++;
-        auto add_neighbors = [&](int point) {
-            for (int neigh : neigh8(point)) {
-                if (mark_[neigh] != mark_id_) {
-                    res[size++] = neigh;
-                    mark_[neigh] = mark_id_;
+        auto add_neighbors = [&](const Move& m) {
+            if (!m.is_pass()) {
+                for (int neigh : neigh8(m.v)) {
+                    if (mark_[neigh] != mark_id_) {
+                        res[size++] = neigh;
+                        mark_[neigh] = mark_id_;
+                    }
                 }
-            }
-            if (mark_[point] != mark_id_) {
-                res[size++] = point;
-                mark_[point] = mark_id_;
+                if (mark_[m.v] != mark_id_) {
+                    res[size++] = m.v;
+                    mark_[m.v] = mark_id_;
+                }
             }
         };
 
-        add_neighbors((history_.end() - 1)->move.v);
+        add_neighbors((history_.end() - 1)->move);
         if (history_.size() == 1) {
             return {res, size};
         }
 
-        add_neighbors((history_.end() - 2)->move.v);
+        add_neighbors((history_.end() - 2)->move);
         return {res, size};
     }
 
