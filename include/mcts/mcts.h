@@ -20,7 +20,6 @@ namespace mcts {
         go::Move search(go::Board root, int iters);
 
     private:
-        go::Color root_color_ = go::Color::Black;
         std::vector<Node> nodes_;
 
         RNG rng_;
@@ -29,8 +28,8 @@ namespace mcts {
 
         int descend(go::Board& pos);
         void expand(int node_id, go::Board& pos);
-        int playout(go::Board& pos);
-        void backprop(int node_id, int result);
+        double playout(go::Board& pos);
+        void backprop(int node_id, double score);
     };
 
 }  // namespace mcts

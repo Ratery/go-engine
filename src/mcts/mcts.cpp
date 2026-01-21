@@ -9,7 +9,6 @@ namespace mcts {
     go::Move MCTS::search(go::Board pos, int iters) {
         nodes_.clear();
         nodes_.emplace_back(go::Move::Pass(), -1);
-        root_color_ = pos.to_play();
         int root_ply_count = pos.ply_count();
 
         for (int it = 0; it < iters; it++) {
@@ -100,9 +99,10 @@ namespace mcts {
         return cur_id;
     }
 
-    int MCTS::playout(go::Board& pos) {
+    double MCTS::playout(go::Board& pos) {
         int passes = 0, moves = 0;
         const int max_moves = 3 * pos.size() * pos.size();
+        go::Color perspective = pos.to_play();
 
         while (passes < 2 && moves++ < max_moves) {
             go::Move m = play_heuristic_move(pos, rng_);
@@ -113,19 +113,19 @@ namespace mcts {
             }
         }
 
-        double score = pos.evaluate(root_color_);
-        return score > 0;
+        return pos.evaluate(perspective);  // score for to-play color in start position
     }
 
-    void MCTS::backprop(int node_id, int result) {
+    void MCTS::backprop(int node_id, double score) {
         int cur_id = node_id;
         while (cur_id != -1) {
             Node& cur = nodes_[cur_id];
             cur.visits++;
-            if (result == 1) {
-                cur.wins++;
+            if (score < 0) {  // score is for to-play, wins is for just-played (parent perspective)
+                cur.wins++;  // if node is loss for to-play, it is winning move for parent
             }
             cur_id = cur.parent;
+            score *= -1;
         }
     }
 
