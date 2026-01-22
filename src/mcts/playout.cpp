@@ -49,13 +49,13 @@ namespace mcts {
                 return m;
             }
         }
-        if (dist(rng) < 0.3) {
+        /*if (dist(rng) < 0.3) {
             gen_playout_moves_capture(pos, moves);
             m = random_move();
             if (!m.is_pass()) {
                 return m;
             }
-        }
+        }*/
 
         pos.gen_pseudo_legal_moves(moves);
         m = random_move();

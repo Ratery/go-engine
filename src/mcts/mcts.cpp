@@ -11,8 +11,11 @@ namespace mcts {
         nodes_.emplace_back(go::Move::Pass(), -1);
         int root_ply_count = pos.ply_count();
 
+        std::vector<go::Point> amaf_map;
         for (int it = 0; it < iters; it++) {
-            int leaf = descend(pos);
+            amaf_map.assign((pos.size() + 1) * (pos.size() + 1), go::Point::Empty);
+
+            int leaf = descend(pos, amaf_map);
 
             if (nodes_[leaf].children.empty()) {
                 expand(leaf, pos);
@@ -21,8 +24,8 @@ namespace mcts {
                 leaf = child;
             }
 
-            int result = playout(pos);
-            backprop(leaf, result);
+            double score = playout(pos, amaf_map);
+            backprop(leaf, score, amaf_map);
             pos.undo(pos.ply_count() - root_ply_count);  // rollback
         }
 
@@ -32,8 +35,8 @@ namespace mcts {
 
         int best_child = -1, max_visits = 0;
         for (int child_id : nodes_[0].children) {
-            if (nodes_[child_id].visits > max_visits) {
-                max_visits = nodes_[child_id].visits;
+            if (nodes_[child_id].v > max_visits) {
+                max_visits = nodes_[child_id].v;
                 best_child = child_id;
             }
         }
@@ -56,14 +59,15 @@ namespace mcts {
             const Node& child = nodes_[child_id];
 
             double score;
-            if (child.visits == 0) {
-                score = std::numeric_limits<double>::infinity();
+            double v = child.v + child.pv;
+            double expectation = (child.w + child.pw) / v;
+            if (child.av == 0) {
+                score = expectation;
             } else {
-                // UCB1 score
-                const double C = 1.41421356;
-                double exploitation = static_cast<double>(child.wins) / child.visits;
-                double exploration = C * std::sqrt(std::log(parent.visits + 1) / child.visits);
-                score = exploitation + exploration;
+                const int RAVE_EQUIV = 3500;
+                double rave_expectation = static_cast<double>(child.aw) / child.av;
+                double beta = child.av / (child.av + v + v * child.av / RAVE_EQUIV);
+                score = beta * rave_expectation + (1 - beta) * expectation;
             }
 
             if (score > best_score) {
@@ -81,25 +85,34 @@ namespace mcts {
         std::vector<go::Move> moves;
         pos.gen_pseudo_legal_moves(moves);
         for (go::Move m : moves) {
-            Node child(m, node_id);
+            Node child{
+                .move = m,
+                .parent = node_id,
+                .just_played = pos.to_play()
+            };
             nodes_.push_back(child);
-            int child_id = (int)nodes_.size() - 1;
+            int child_id = static_cast<int>(nodes_.size()) - 1;
             nodes_[node_id].children.push_back(child_id);
         }
     }
 
-    int MCTS::descend(go::Board& pos) {
+    int MCTS::descend(go::Board& pos, std::vector<go::Point>& amaf_map) {
         int cur_id = 0;
         while (!nodes_[cur_id].children.empty()) {
             int child_id = select_child(cur_id);
             Node& child = nodes_[child_id];
             pos.move(child.move);
+
+            if (amaf_map[child.move.v] == go::Point::Empty) {
+                amaf_map[child.move.v] = go::ToPoint(child.just_played);
+            }
+
             cur_id = child_id;
         }
         return cur_id;
     }
 
-    double MCTS::playout(go::Board& pos) {
+    double MCTS::playout(go::Board& pos, std::vector<go::Point>& amaf_map) {
         int passes = 0, moves = 0;
         const int max_moves = 3 * pos.size() * pos.size();
         go::Color perspective = pos.to_play();
@@ -110,20 +123,34 @@ namespace mcts {
                 passes++;
             } else {
                 passes = 0;
+                if (amaf_map[m.v] == go::Point::Empty) {
+                    amaf_map[m.v] = go::ToPoint(go::Opp(pos.to_play()));
+                }
             }
         }
 
         return pos.evaluate(perspective);  // score for to-play color in start position
     }
 
-    void MCTS::backprop(int node_id, double score) {
+    void MCTS::backprop(int node_id, double score, const std::vector<go::Point>& amaf_map) {
         int cur_id = node_id;
         while (cur_id != -1) {
             Node& cur = nodes_[cur_id];
-            cur.visits++;
-            if (score < 0) {  // score is for to-play, wins is for just-played (parent perspective)
-                cur.wins++;  // if node is loss for to-play, it is winning move for parent
+            cur.v++;
+            if (score < 0) {  // score is for to-play, w is for just-played (parent perspective)
+                cur.w++;  // if node is loss for to-play, it is winning move for parent
             }
+
+            for (int child_id : cur.children) {
+                Node& child = nodes_[child_id];
+                if (go::Matches(amaf_map[child.move.v], child.just_played)) {
+                    child.av++;
+                    if (score > 0) {
+                        child.aw++;
+                    }
+                }
+            }
+
             cur_id = cur.parent;
             score *= -1;
         }

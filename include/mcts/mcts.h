@@ -26,10 +26,10 @@ namespace mcts {
 
         int select_child(int parent_id);
 
-        int descend(go::Board& pos);
+        int descend(go::Board& pos, std::vector<go::Point>& amaf_map);
         void expand(int node_id, go::Board& pos);
-        double playout(go::Board& pos);
-        void backprop(int node_id, double score);
+        double playout(go::Board& pos, std::vector<go::Point>& amaf_map);
+        void backprop(int node_id, double score, const std::vector<go::Point>& amaf_map);
     };
 
 }  // namespace mcts

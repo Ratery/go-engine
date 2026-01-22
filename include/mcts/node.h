@@ -12,8 +12,14 @@ namespace mcts {
         go::Move move;
         int parent = -1;
         std::vector<int> children;
+        go::Color just_played;
 
-        int visits = 0, wins = 0;
+        int v = 0;
+        int w = 0;
+        int av = 0;
+        int aw = 0;
+        int pv = 10;
+        int pw = 5;
     };
 
 }  // namespace mcts
